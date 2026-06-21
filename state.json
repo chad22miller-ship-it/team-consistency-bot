@@ -5,14 +5,15 @@
       "joinedAt": 1782072154078,
       "phase": "awaiting",
       "askedAt": 1782072152676,
-      "lastNagAt": 1782072152676,
+      "lastNagAt": 1782086280393,
       "lastAskedDate": "2026-06-21",
       "lastConfirmedDate": null
     }
   },
   "admins": [],
-  "tgOffset": 298851793,
+  "tgOffset": 298851795,
   "recent": [
+    "Ashley, you know the drill. Daily check-in at https://consistencycompounds.vercel.app/. Reply yes or no.",
     "New day, Ashley. Have you done your check-in at https://consistencycompounds.vercel.app/? Reply yes or no."
   ],
   "lastDigestDate": null
