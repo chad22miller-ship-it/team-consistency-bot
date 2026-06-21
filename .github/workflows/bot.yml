@@ -25,14 +25,13 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ADMIN_PIN: ${{ secrets.ADMIN_PIN }}
           MANAGER_CHAT_ID: '7695888834'
           CHECKIN_URL: 'https://consistencycompounds.vercel.app/'
           TEAM_NAME: 'Consistency Compounds'
           TIMEZONE: 'America/New_York'
           ASK_HOUR: '9'
           ASK_MINUTE: '0'
-          DIGEST_HOUR: '20'
-          DIGEST_MINUTE: '0'
         run: node bot.js
       - name: Save state
         run: |

@@ -1,24 +1,31 @@
 /**
  * Consistency Compounds - TEAM Accountability Bot (free, GitHub Actions edition)
  * -----------------------------------------------------------------------------
- * One bot, your whole team. Runs free on GitHub Actions, 24/7, no computer.
+ * One bot, your whole team. Free on GitHub Actions, 24/7, no computer.
  *
- * - Auto-registers each rep the first time they message the bot (tap Start + say hi).
- * - Daily: asks every rep their check-in, nudges hourly if quiet, gives up after 12h.
- * - "yes" -> personalized team-culture win, marked done for the day.
- * - Sends YOU (the manager) a daily digest: who checked in, who didn't.
+ * CONTROL IS PIN-GATED:
+ *   - Anyone who messages the bot can ONLY check in (reply "yes"). They cannot change anything.
+ *   - To control the bot (see roster, remove people) you must unlock with the PIN:
+ *       send:  /admin <PIN>
+ *   - Reps without the PIN have zero ability to alter settings or the roster.
+ *
+ * - Auto-registers each rep the first time they message (tap Start + say hi).
+ * - Daily: asks every rep, nudges hourly if quiet, gives up after 12h.
+ * - "yes" -> personalized team-culture win.
+ * - Admins get an instant alert when someone new joins.
  *
  * Messaging is TEAM culture/values only - no personal info about anyone.
  * Coach lines: Gemini (free) -> Anthropic (if set) -> built-in templates. Never silent.
- * Uses only Node's built-in fetch/fs - zero dependencies.
+ * Zero dependencies (Node built-in fetch/fs).
  */
 
 const fs = require('fs');
 const path = require('path');
 
 // ---------- Config ----------
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN;                 // the TEAM bot token
-const MANAGER_CHAT_ID = String(process.env.MANAGER_CHAT_ID || '');
+const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const MANAGER_CHAT_ID = String(process.env.MANAGER_CHAT_ID || '');   // owner: always an admin
+const ADMIN_PIN = String(process.env.ADMIN_PIN || '');               // unlocks admin for anyone who sends it
 const CHECKIN_URL = process.env.CHECKIN_URL || 'https://consistencycompounds.vercel.app/';
 const TEAM_NAME = process.env.TEAM_NAME || 'Consistency Compounds';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -27,8 +34,6 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const TIMEZONE = process.env.TIMEZONE || 'America/New_York';
 const ASK_HOUR = parseInt(process.env.ASK_HOUR || '9', 10);
 const ASK_MINUTE = parseInt(process.env.ASK_MINUTE || '0', 10);
-const DIGEST_HOUR = parseInt(process.env.DIGEST_HOUR || '20', 10);   // 8pm ET default
-const DIGEST_MINUTE = parseInt(process.env.DIGEST_MINUTE || '0', 10);
 const STATE_FILE = process.env.STATE_FILE || path.join(__dirname, 'state.json');
 const SMOKE_TEST = process.env.SMOKE_TEST === '1';
 
@@ -38,13 +43,14 @@ const API = `https://api.telegram.org/bot${TOKEN}`;
 const pad = (n) => String(n).padStart(2, '0');
 
 // ---------- State ----------
-const DEFAULT_STATE = { reps: {}, tgOffset: 0, lastDigestDate: null, recent: [] };
+const DEFAULT_STATE = { reps: {}, admins: [], tgOffset: 0, recent: [] };
 let state = { ...DEFAULT_STATE };
 function newRep(name) { return { name, joinedAt: Date.now(), phase: 'idle', askedAt: null, lastNagAt: null, lastAskedDate: null, lastConfirmedDate: null }; }
 function loadState() {
   try { if (fs.existsSync(STATE_FILE)) state = { ...DEFAULT_STATE, ...JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) }; }
   catch (e) { console.error('state load failed, using defaults:', e.message); }
   if (!state.reps) state.reps = {};
+  if (!state.admins) state.admins = [];
   if (!state.recent) state.recent = [];
 }
 function saveState() {
@@ -58,6 +64,7 @@ function nowParts() {
   const [h, m] = hm.split(':').map((n) => parseInt(n, 10));
   return { date, h: h % 24, m };
 }
+function isAdmin(id) { return (MANAGER_CHAT_ID && id === MANAGER_CHAT_ID) || state.admins.includes(id); }
 
 // ---------- Team-culture voice (NO personal data about anyone) ----------
 function coachSystem() {
@@ -93,14 +100,8 @@ function pickTemplate(kind, name) {
 }
 async function generateGemini(kind, name) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-  const r = await fetch(url, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: coachSystem() }] },
-      contents: [{ role: 'user', parts: [{ text: PROMPTS[kind](name) }] }],
-      generationConfig: { maxOutputTokens: 300, temperature: 1.0, thinkingConfig: { thinkingBudget: 0 } }
-    })
-  });
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ system_instruction: { parts: [{ text: coachSystem() }] }, contents: [{ role: 'user', parts: [{ text: PROMPTS[kind](name) }] }], generationConfig: { maxOutputTokens: 300, temperature: 1.0, thinkingConfig: { thinkingBudget: 0 } } }) });
   const j = await r.json();
   const cand = (j.candidates || [])[0] || {};
   const text = ((cand.content || {}).parts || []).map((p) => p.text || '').join('').trim();
@@ -108,10 +109,8 @@ async function generateGemini(kind, name) {
   return text;
 }
 async function generateAnthropic(kind, name) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, system: coachSystem(), messages: [{ role: 'user', content: PROMPTS[kind](name) }] })
-  });
+  const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, system: coachSystem(), messages: [{ role: 'user', content: PROMPTS[kind](name) }] }) });
   const j = await r.json();
   const text = (j.content || []).map((b) => b.text || '').join('').trim();
   if (!text) throw new Error('anthropic empty');
@@ -139,53 +138,69 @@ async function tgSend(chatId, kind, name) {
   const ok = await tgRaw(chatId, text);
   if (ok) { state.recent = [text, ...state.recent].slice(0, 20); console.log(`sent ${kind} -> ${name} (${chatId})`); }
 }
-
-function digestText() {
-  const { date } = nowParts();
-  const entries = Object.values(state.reps);
-  if (!entries.length) return null;
-  const done = entries.filter((r) => r.lastConfirmedDate === date).map((r) => r.name);
-  const missed = entries.filter((r) => r.lastConfirmedDate !== date).map((r) => r.name);
-  return `\u{1F4CA} ${TEAM_NAME} - daily check-in (${date})\n✅ Done (${done.length}): ${done.join(', ') || '—'}\n❌ Not yet (${missed.length}): ${missed.join(', ') || '—'}`;
+async function notifyAdmins(text) {
+  const ids = new Set();
+  if (MANAGER_CHAT_ID) ids.add(MANAGER_CHAT_ID);
+  for (const a of state.admins) ids.add(a);
+  for (const i of ids) await tgRaw(i, text);
 }
 
 async function handleUpdate(u) {
   const msg = u.message || u.edited_message;
   if (!msg || !msg.chat || msg.chat.type !== 'private') return;
   const id = String(msg.chat.id);
-  const text = (msg.text || '').toLowerCase().trim();
+  const text = (msg.text || '').trim();
+  const low = text.toLowerCase();
   const first = (msg.from && (msg.from.first_name || msg.from.username)) || 'there';
   const { date } = nowParts();
 
-  // Manager (you): digest + commands, never a check-in rep
-  if (id === MANAGER_CHAT_ID) {
-    if (text === '/roster') {
-      const list = Object.values(state.reps).map((r) => `• ${r.name}`).join('\n') || '(no reps yet)';
-      await tgRaw(id, `${TEAM_NAME} roster (${Object.keys(state.reps).length}):\n${list}`);
-    } else if (text === '/digest') {
-      await tgRaw(id, digestText() || 'No reps registered yet.');
-    } else if (['/start', '/ping', 'ping', '/test'].includes(text)) {
-      await tgRaw(id, `You're set as the ${TEAM_NAME} manager. You'll get a daily digest at ${pad(DIGEST_HOUR)}:${pad(DIGEST_MINUTE)} ${TIMEZONE}. Commands: /roster, /digest.`);
+  // --- PIN unlock (anyone can attempt; only correct PIN grants control) ---
+  if (low.startsWith('/admin')) {
+    const given = text.split(/\s+/)[1] || '';
+    if (ADMIN_PIN && given === ADMIN_PIN) {
+      if (!state.admins.includes(id)) state.admins.push(id);
+      if (state.reps[id]) delete state.reps[id]; // admins aren't check-in reps
+      await tgRaw(id, `\u{1F513} Admin unlocked. Commands: /roster (see team), /remove <name>, /logout.`);
+    } else {
+      await tgRaw(id, `\u{274C} Wrong PIN.`);
     }
     return;
   }
 
-  // Rep: auto-register on first contact
+  // --- Admins only: control commands ---
+  if (isAdmin(id)) {
+    if (low === '/roster') {
+      const list = Object.values(state.reps).map((r) => `• ${r.name}${r.lastConfirmedDate === date ? ' ✅' : ''}`).join('\n') || '(no reps yet)';
+      await tgRaw(id, `${TEAM_NAME} roster (${Object.keys(state.reps).length}):\n${list}`);
+    } else if (low.startsWith('/remove')) {
+      const q = text.split(/\s+/).slice(1).join(' ').toLowerCase();
+      const match = Object.entries(state.reps).find(([rid, r]) => r.name.toLowerCase() === q || rid === q);
+      if (match) { delete state.reps[match[0]]; await tgRaw(id, `Removed ${match[1].name}.`); }
+      else await tgRaw(id, `No rep matching "${q}". Use /roster for names.`);
+    } else if (low === '/logout') {
+      state.admins = state.admins.filter((a) => a !== id);
+      await tgRaw(id, id === MANAGER_CHAT_ID ? 'You are the owner - you keep control.' : 'Logged out of admin.');
+    } else if (['/start', '/ping', 'ping', '/help', '/test'].includes(low)) {
+      await tgRaw(id, `You're an admin of ${TEAM_NAME}. Commands: /roster, /remove <name>, /logout.`);
+    }
+    return;
+  }
+
+  // --- Everyone else = a rep. They can ONLY check in. ---
+  if (low.startsWith('/roster') || low.startsWith('/remove') || low === '/logout') {
+    await tgRaw(id, `\u{1F512} That's admin-only. You're all set to just reply "yes" to your daily check-in.`);
+    return;
+  }
   if (!state.reps[id]) {
     state.reps[id] = newRep(first);
     await tgRaw(id, `You're in, ${first}! ${TEAM_NAME} runs a daily check-in - I'll ask each morning, you reply "yes" when it's done. No excuses, we win together.`);
-    if (MANAGER_CHAT_ID && id !== MANAGER_CHAT_ID) {
-      const uname = (msg.from && msg.from.username) ? ` (@${msg.from.username})` : '';
-      await tgRaw(MANAGER_CHAT_ID, `\u{1F195} New rep joined ${TEAM_NAME}: ${first}${uname}. Team size: ${Object.keys(state.reps).length}.`);
-    }
+    await notifyAdmins(`\u{1F195} New rep joined ${TEAM_NAME}: ${first}${msg.from && msg.from.username ? ` (@${msg.from.username})` : ''}. Team size: ${Object.keys(state.reps).length}.`);
     return;
   }
   const rep = state.reps[id];
-  if (rep.name !== first && first !== 'there') rep.name = first; // keep name fresh
-
-  if (['/ping', 'ping', '/test'].includes(text)) { await tgRaw(id, `Online, ${rep.name}. Daily check-in lands at ${pad(ASK_HOUR)}:${pad(ASK_MINUTE)} ${TIMEZONE}. Reply "yes" when it's done.`); return; }
-
-  if (rep.phase === 'awaiting' && (!rep.askedAt || msg.date * 1000 >= rep.askedAt) && text.includes('yes') && rep.lastConfirmedDate !== date) {
+  if (rep.name !== first && first !== 'there') rep.name = first;
+  if (['/ping', 'ping', '/test', '/start'].includes(low)) { await tgRaw(id, `Online, ${rep.name}. Daily check-in lands at ${pad(ASK_HOUR)}:${pad(ASK_MINUTE)} ${TIMEZONE}. Reply "yes" when it's done.`); return; }
+  if (rep.phase === 'awaiting' && (!rep.askedAt || msg.date * 1000 >= rep.askedAt) && low.includes('yes') && rep.lastConfirmedDate !== date) {
     rep.phase = 'idle'; rep.askedAt = null; rep.lastNagAt = null; rep.lastConfirmedDate = date;
     await tgSend(id, 'win', rep.name);
   }
@@ -195,15 +210,12 @@ async function runOnce() {
   loadState();
   const { date, h, m } = nowParts();
   const now = Date.now();
-
-  // 1) read messages (registers new reps, catches replies)
   try {
     const r = await fetch(`${API}/getUpdates?timeout=0&offset=${state.tgOffset || 0}`);
     const j = await r.json();
     if (j.ok && Array.isArray(j.result)) for (const u of j.result) { state.tgOffset = u.update_id + 1; await handleUpdate(u); }
   } catch (e) { console.error('getUpdates failed:', e.message); }
 
-  // 2) per-rep daily ask + nudges
   const pastAsk = h > ASK_HOUR || (h === ASK_HOUR && m >= ASK_MINUTE);
   for (const [id, rep] of Object.entries(state.reps)) {
     if (rep.phase !== 'awaiting') {
@@ -219,25 +231,15 @@ async function runOnce() {
     }
   }
 
-  // 3) daily manager digest
-  const pastDigest = h > DIGEST_HOUR || (h === DIGEST_HOUR && m >= DIGEST_MINUTE);
-  if (MANAGER_CHAT_ID && state.lastDigestDate !== date && pastDigest) {
-    const dt = digestText();
-    if (dt) await tgRaw(MANAGER_CHAT_ID, dt);
-    state.lastDigestDate = date;
-  }
-
   saveState();
-  console.log(`run complete @ ${date} ${pad(h)}:${pad(m)} ${TIMEZONE} | reps=${Object.keys(state.reps).length} | ai=${GEMINI_API_KEY ? 'gemini' : (ANTHROPIC_API_KEY ? 'anthropic' : 'templates')}`);
+  console.log(`run complete @ ${date} ${pad(h)}:${pad(m)} ${TIMEZONE} | reps=${Object.keys(state.reps).length} admins=${state.admins.length} | ai=${GEMINI_API_KEY ? 'gemini' : (ANTHROPIC_API_KEY ? 'anthropic' : 'templates')}`);
 }
 
 if (SMOKE_TEST) {
   loadState();
   console.log('SMOKE -', JSON.stringify(nowParts()), '| ai=', GEMINI_API_KEY ? 'gemini' : (ANTHROPIC_API_KEY ? 'anthropic' : 'templates'));
   for (const k of ['ask', 'nudge', 'win']) console.log('SMOKE', k, '->', pickTemplate(k, 'Marcus'));
-  state.reps = { '111': newRep('Marcus'), '222': newRep('Dana') };
-  state.reps['111'].lastConfirmedDate = nowParts().date;
-  console.log('SMOKE digest ->\n' + digestText());
+  console.log('SMOKE isAdmin(manager)=', isAdmin(String(process.env.MANAGER_CHAT_ID || '')));
   console.log('SMOKE ok');
 } else {
   if (!TOKEN || !MANAGER_CHAT_ID) { console.error('Missing TELEGRAM_BOT_TOKEN / MANAGER_CHAT_ID'); process.exit(1); }
