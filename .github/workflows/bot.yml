@@ -1,0 +1,47 @@
+name: Team Consistency Bot
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: team-consistency-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run the bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MANAGER_CHAT_ID: '7695888834'
+          CHECKIN_URL: 'https://consistencycompounds.vercel.app/'
+          TEAM_NAME: 'Consistency Compounds'
+          TIMEZONE: 'America/New_York'
+          ASK_HOUR: '9'
+          ASK_MINUTE: '0'
+          DIGEST_HOUR: '20'
+          DIGEST_MINUTE: '0'
+        run: node bot.js
+      - name: Save state
+        run: |
+          if [ -n "$(git status --porcelain state.json)" ]; then
+            git config user.name "team-consistency-bot"
+            git config user.email "actions@github.com"
+            git add state.json
+            git commit -m "update team state [skip ci]"
+            git push
+          else
+            echo "no state change this run"
+          fi
