@@ -1,7 +1,19 @@
 {
-  "reps": {},
+  "reps": {
+    "6115227629": {
+      "name": "Ashley",
+      "joinedAt": 1782072154078,
+      "phase": "awaiting",
+      "askedAt": 1782072152676,
+      "lastNagAt": 1782072152676,
+      "lastAskedDate": "2026-06-21",
+      "lastConfirmedDate": null
+    }
+  },
   "admins": [],
-  "tgOffset": 0,
-  "recent": [],
+  "tgOffset": 298851793,
+  "recent": [
+    "New day, Ashley. Have you done your check-in at https://consistencycompounds.vercel.app/? Reply yes or no."
+  ],
   "lastDigestDate": null
 }
