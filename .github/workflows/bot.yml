@@ -3,7 +3,12 @@ name: Team Consistency Bot
 on:
   schedule:
     - cron: '*/5 * * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      test_message:
+        description: 'Optional: send this raw text to the manager chat instead of running the bot'
+        required: false
+        type: string
 
 concurrency:
   group: team-consistency-bot
@@ -20,7 +25,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Send test ping
+        if: ${{ github.event.inputs.test_message != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TEST_MESSAGE: ${{ github.event.inputs.test_message }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=7695888834" \
+            --data-urlencode "text=${TEST_MESSAGE}"
       - name: Run the bot
+        if: ${{ github.event.inputs.test_message == '' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
