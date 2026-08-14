@@ -3,16 +3,17 @@
     "6115227629": {
       "name": "Ashley",
       "joinedAt": 1782072154078,
-      "phase": "idle",
-      "askedAt": null,
-      "lastNagAt": null,
-      "lastAskedDate": "2026-06-21",
+      "phase": "awaiting",
+      "askedAt": 1786734820721,
+      "lastNagAt": 1786734820721,
+      "lastAskedDate": "2026-08-14",
       "lastConfirmedDate": null
     }
   },
   "admins": [],
   "tgOffset": 298851795,
   "recent": [
+    "Ashley, daily check-in: https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, you know the drill. Daily check-in at https://consistencycompounds.vercel.app/. Reply yes or no.",
     "New day, Ashley. Have you done your check-in at https://consistencycompounds.vercel.app/? Reply yes or no."
   ],
