@@ -5,7 +5,7 @@
       "joinedAt": 1782072154078,
       "phase": "awaiting",
       "askedAt": 1786885785260,
-      "lastNagAt": 1786898364922,
+      "lastNagAt": 1786902002009,
       "lastAskedDate": "2026-08-16",
       "lastConfirmedDate": null
     }
@@ -13,6 +13,7 @@
   "admins": [],
   "tgOffset": 298851795,
   "recent": [
+    "Ashley, take responsibility for your daily check-in at https://consistencycompounds.vercel.app/. Reply yes or no.",
     "Ashley, it's time to take 100% responsibility. Check-in at https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, demonstrate your commitment to the team. Daily check-in at https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, uphold your daily commitment. Check-in at https://consistencycompounds.vercel.app/. Reply yes or no.",
@@ -31,8 +32,7 @@
     "Ashley, deliver on your daily commitment. Check-in at https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, do what's best for the team. Check-in here: https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, show up daily. Confirm your check-in at https://consistencycompounds.vercel.app/. Yes or no?",
-    "Ashley, your responsibility is to the team. Confirm your check-in at https://consistencycompounds.vercel.app/. Yes or no?",
-    "Ashley, no excuses. Check-in here: https://consistencycompounds.vercel.app/. Yes or no?"
+    "Ashley, your responsibility is to the team. Confirm your check-in at https://consistencycompounds.vercel.app/. Yes or no?"
   ],
   "lastDigestDate": null
 }
