@@ -3,16 +3,17 @@
     "6115227629": {
       "name": "Ashley",
       "joinedAt": 1782072154078,
-      "phase": "idle",
-      "askedAt": null,
-      "lastNagAt": null,
-      "lastAskedDate": "2026-08-16",
+      "phase": "awaiting",
+      "askedAt": 1786973302687,
+      "lastNagAt": 1786973302687,
+      "lastAskedDate": "2026-08-17",
       "lastConfirmedDate": null
     }
   },
   "admins": [],
   "tgOffset": 298851795,
   "recent": [
+    "Ashley, where's your check-in? https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, your word to the team is non-negotiable. Check-in at https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, simplify to multiply. Check-in at https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, uphold the team's values. Check-in at https://consistencycompounds.vercel.app/. Yes or no?",
@@ -31,8 +32,7 @@
     "Ashley, action your commitment. Check-in at https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, own your daily commitment. Confirm your check-in at https://consistencycompounds.vercel.app/. Yes or no?",
     "Ashley, let's go. Check-in at https://consistencycompounds.vercel.app/. Yes or no?",
-    "Ashley, honor your commitment to the team and check in at https://consistencycompounds.vercel.app/. Reply yes or no.",
-    "Ashley, have you upheld your commitment and completed your daily check-in at https://consistencycompounds.vercel.app/? Reply yes or no."
+    "Ashley, honor your commitment to the team and check in at https://consistencycompounds.vercel.app/. Reply yes or no."
   ],
   "lastDigestDate": null
 }
