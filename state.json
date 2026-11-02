@@ -3,10 +3,10 @@
     "6115227629": {
       "name": "Ashley",
       "joinedAt": 1782072154078,
-      "phase": "idle",
-      "askedAt": null,
-      "lastNagAt": null,
-      "lastAskedDate": "2026-11-01",
+      "phase": "awaiting",
+      "askedAt": 1793644748661,
+      "lastNagAt": 1793644748661,
+      "lastAskedDate": "2026-11-02",
       "lastConfirmedDate": null
     }
   },
